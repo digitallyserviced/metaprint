@@ -17,9 +17,10 @@ type Config struct {
 	Custom      map[string]modules.Custom      `yaml:"custom"`
 	DateTime    map[string]modules.Date        `yaml:"datetime"`
 	HackSpeed   map[string]modules.HackSpeed   `yaml:"hackspeed"`
-	CpuInfo     map[string]modules.CpuInfo     `yaml:"cpuinfo"`
-  CpuUsage    map[string]modules.CpuUsage    `yaml:"cpuusage"`
-	LoadAvg     map[string]modules.LoadAvg     `yaml:"loadavg"`
+	CpuInfo     map[string]modules.CpuInfo     `yaml:"cpu_info"`
+	CpuUsage    map[string]modules.CpuUsage    `yaml:"cpu_usage"`
+	NetUsage    map[string]modules.NetUsage    `yaml:"net_usage"`
+	LoadAvg     map[string]modules.LoadAvg     `yaml:"load_avg"`
 	Ip          map[string]modules.IP          `yaml:"ip"`
 	Music       map[string]modules.Music       `yaml:"music"`
 	PulseAudio  map[string]modules.PulseAudio  `yaml:"pulseaudio"`
@@ -28,6 +29,7 @@ type Config struct {
 	Temperature map[string]modules.Temperature `yaml:"temperature"`
 	Uptime      map[string]modules.Uptime      `yaml:"uptime"`
 }
+
 
 func GetModulesAvailable() []string {
 	modulesAvailable := []string{}
@@ -71,6 +73,65 @@ func (c Config) FindModule(moduleType, name string) (modules.Module, error) {
 	return module, nil
 }
 
+func (c Config) GetModuleFormatsAvailable() (map[string]interface{}, error) {
+    mods := GetModulesAvailable()
+    out := make(map[string]interface{})
+    for _, v := range mods {
+        formats, ok := c.GetModuleFormats(v)
+
+        if ok != nil {
+            return nil, fmt.Errorf("%V", ok)
+        }
+        fmts := make(map[string]interface{})
+        for formats.Next() {
+            k := formats.Key()
+            v := formats.Value()
+            fields := reflect.VisibleFields(v.Type())
+
+            fmtKeys := make(map[string]string)
+            for _, field := range fields {
+                fvkey := field.Name
+                fvval := v.FieldByIndex(field.Index)
+                if fvval.Kind() != reflect.Invalid && fvval.Kind().String() == "string" {
+                   fmtKeys[fvkey] = fvval.String() 
+                   continue
+                }
+            }
+            fmts[k.String()]=fmtKeys
+        }
+        if len(fmts) == 0 {
+            fmts["NA"] = "None Available"
+        }
+        // for _, f := range formats {
+        //     fmtConfig, fok := c.FindModule(v, f.String())
+        //     if fok != nil {
+        //         break
+        //     }
+        //     for fmtConfig.Next
+        //     rfmt := reflect.ValueOf(fmtConfig)
+        //     fmts[f.String()] = rfmt.MapIndex()
+        // }
+        out[v] = fmts
+    }
+    return out, nil
+}
+
+func (c Config) GetModuleFormats(moduleType string) (*reflect.MapIter, error) {
+	fieldName := getFieldNameFromModuleName(moduleType)
+	if len(fieldName) == 0 {
+		return nil, nil
+	}
+
+	t := reflect.ValueOf(c)
+    moduleFormatKeys := t.FieldByName(fieldName).MapRange()
+
+	// if len(moduleFormatKeys) == 0 {
+	// 	return nil, errors.New("could not find any formats for module " + fieldName)
+	// }
+
+	return moduleFormatKeys, nil
+}
+
 // Load the configuration struct from a json file
 func Load() *Config {
 	var config Config
@@ -82,7 +143,12 @@ func Load() *Config {
 	hostPath := getPath() + hostname + ".yml"
 
 	anyFound := false
+    // cfg, err := findAndLoadConfig()
 	if _, err := os.Stat(globalPath); !os.IsNotExist(err) {
+        if err != nil {
+            fmt.Println(fmt.Sprintf("%s", err))
+        }
+        // actually check err, we need a working config otherwise complain
 		err = loadConfig(&config, globalPath)
 		if err == nil {
 			anyFound = true
@@ -102,7 +168,7 @@ func Load() *Config {
 	}
 
 	if !anyFound {
-		fmt.Println("Could not load any config !")
+		fmt.Println(fmt.Sprintf("Could not load any config !\n %s", err))
 		os.Exit(1)
 	}
 

@@ -49,7 +49,7 @@ func (r HackSpeed) PrintFormatted(spaces, keys, shorties, fakewpm, wpm float64) 
 		"keys":     utils.GetRoundedFloat(keys, r.Rounding),
 		"spaces":   utils.GetRoundedFloat(spaces, r.Rounding),
 		"shorties": utils.GetRoundedFloat(shorties, r.Rounding),
-		"fakewpm":      utils.GetRoundedFloat(fakewpm, r.Rounding),
+		"fakewpm":  utils.GetRoundedFloat(fakewpm, r.Rounding),
 		"wpm":      utils.GetRoundedFloat(wpm, r.Rounding),
 	})
 }
@@ -94,6 +94,7 @@ func PrintMarked(keyopts *map[string]interface{}) {
 }
 
 var keyEventKeys = []string{"keysyms", "mods", "unicode", "leds", "level"}
+
 func (is *InputStats) getKeys(s string) (*map[string]interface{}, error) {
 
 	regex := regexp.MustCompile(`(?Ui)(?i:([a-z]+) \[([^\]]+)\][ ]?)`)
@@ -153,7 +154,7 @@ type InputStats struct {
 	lastKey         map[string]interface{}
 	shortcutPressed int
 	spacePressed    int
-  keySpaceRatio   float64
+	keySpaceRatio   float64
 }
 
 type InputStat struct {
@@ -167,10 +168,10 @@ func (is *InputStats) calculateStats() (float64, float64, float64, float64, floa
 	keys := is.lastAvgs[0]
 	shorties := is.lastAvgs[2]
 
-  wpm := is.lastAvgs[3] * 60.0
+	wpm := is.lastAvgs[3] * 60.0
 	fakewpm := (spaces) * 60.0
 
- //  dump.Print(is.lastAvgs)
+	//  dump.Print(is.lastAvgs)
 	// fmt.Printf("\r\nkeys: %0.3f spaces: %0.3f,shorties: %0.3f fwpm: %0.3f wpm: %0.3f\r\n", keys, spaces, shorties, fakewpm, wpm )
 	return spaces, keys, shorties, fakewpm, wpm
 }
@@ -179,23 +180,23 @@ func (is *InputStats) Tick() {
 	is.windowEnd = time.Now()
 	is.lastElapsed = time.Since(is.windowStart)
 
-  elapse := float64(is.lastElapsed.Seconds())
-  spaceRatio := float64(is.spacePressed) / float64(is.keysPressed)
-  smoothavg := (is.lastAvgs[3] * (float64(is.smoothCount - 1)))
-  accwps := (float64(is.keysPressed) / (float64(is.spacePressed) * (1.0-spaceRatio))) / float64(elapse) 
-  smoothavg = (smoothavg + accwps) / float64(is.smoothCount)
-  
-  if (math.IsNaN(smoothavg) || math.IsInf(smoothavg, 1)){
-    smoothavg = 0.00
-  }
-  // dump.Print(smoothavg, spaceRatio, accwps)
-  
-  is.lastAvgs[3] = smoothavg
+	elapse := float64(is.lastElapsed.Seconds())
+	spaceRatio := float64(is.spacePressed) / float64(is.keysPressed)
+	smoothavg := (is.lastAvgs[3] * (float64(is.smoothCount - 1)))
+	accwps := (float64(is.keysPressed) / (float64(is.spacePressed) * (1.0 - spaceRatio))) / float64(elapse)
+	smoothavg = (smoothavg + accwps) / float64(is.smoothCount)
+
+	if math.IsNaN(smoothavg) || math.IsInf(smoothavg, 1) {
+		smoothavg = 0.00
+	}
+	// dump.Print(smoothavg, spaceRatio, accwps)
+
+	is.lastAvgs[3] = smoothavg
 
 	is.avg(is.lastAvgs[0:1], &is.keysPressed)
 	is.avg(is.lastAvgs[1:2], &is.spacePressed)
 	is.avg(is.lastAvgs[2:3], &is.shortcutPressed)
-  // is.avg(is.lastAvgs[3:4], is.keysPressed / is.spacePressed)
+	// is.avg(is.lastAvgs[3:4], is.keysPressed / is.spacePressed)
 
 	is.windowStart = time.Now()
 }
@@ -211,19 +212,19 @@ func (is *InputStats) avg(lAvg []float64, keys *int) {
 	*keys = 0
 }
 func (is *InputStats) keyed(keyed map[string]interface{}) {
-  keycheck := []string{"keysyms", "mods"}
-  somenil := false
-  for _, k := range keycheck {
-    if keyed[k] == nil {
-      somenil = true
-    }
-  }
-	
-  if somenil && keyed["keysyms"] != nil && strings.ToLower(keyed["keysyms"].(string)) == "j" {
-	is.lastKey = keyed
+	keycheck := []string{"keysyms", "mods"}
+	somenil := false
+	for _, k := range keycheck {
+		if keyed[k] == nil {
+			somenil = true
+		}
+	}
+
+	if somenil && keyed["keysyms"] != nil && strings.ToLower(keyed["keysyms"].(string)) == "j" {
+		is.lastKey = keyed
 		return
 	}
-  
+
 	if len(strings.TrimSpace(keyed["mods"].(string))) > 0 {
 		is.shortcutPressed += 1
 	} else if spstr, ok := keyed["keysyms"].(string); ok {
@@ -272,31 +273,30 @@ func (envCmd *streamCmd) startKeyCmd() error {
 			case line, open := <-envCmd.proc.Stdout:
 				if !open {
 					envCmd.proc.Stdout = nil
-					continue
+					os.Exit(0)
 				}
 				key, ok := is.getKeys(line)
 				if ok != nil {
 					fmt.Println(ok)
-					return
-				}
-				if key != nil {
-
+					os.Exit(0)
 				}
 				is.keyed(*key)
 
 			case line, open := <-envCmd.proc.Stderr:
 				if !open {
 					envCmd.proc.Stderr = nil
-					continue
+                    fmt.Println(open, line)
+					os.Exit(0)
 				}
-				fmt.Fprintln(os.Stderr, line)
+				os.Exit(0)
 			}
 		}
 	}()
 
 	<-envCmd.proc.Start()
 
-	return nil
+	os.Exit(0)
+    return nil
 }
 
 func (r *HackSpeed) streamKeys() []*streamCmd {
@@ -305,13 +305,14 @@ func (r *HackSpeed) streamKeys() []*streamCmd {
 	envCmd, ok := NewCmd("/home/chris/.local/bin/keyev", []string{})
 	if ok != nil {
 		fmt.Println(ok)
-		return nil
+		os.Exit(0)
 	}
 	cmds[0] = envCmd
 	go func() {
 		ok = envCmd.startKeyCmd()
 		if ok != nil {
 			fmt.Println(ok)
+			os.Exit(0)
 			return
 		}
 	}()
