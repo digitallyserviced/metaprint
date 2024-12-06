@@ -1,0 +1,118 @@
+# ⚙ ● ✚ ⍟ ↓ ↑ ☿  → 
+# typeset -g POWERLEVEL9K_BATTERY_STAGES='\uf58d\uf579\uf57a\uf57b\uf57c\uf57d\uf57e\uf57f\uf580\uf581\uf578'
+battery:
+  tmux:
+    ramp: ""
+    charging_text: 
+    discharging_text: 
+    format: "%percentage%%"
+
+datetime:
+  i3:
+    prefix: 
+    format: 01/02/06 <b>15:04:05</b>
+  tmux:
+    format: 15:04:05
+
+cpu_info:
+  tmux:
+    format: " #[bold,fg=colour0]%cpus% #[nobold] #[bold,fg=colour8 dim]%avgghz%㎓"
+    rounding: 2
+    
+net_usage:
+  tmux:
+    format: "↓#{p-6:#{l:%rx%}} ↑#{p-6:#{l:%tx%}} "
+    device: wlan1
+    rounding: 0
+    
+cpu_usage:
+  tmux:
+    format: " #{p-3:#{l:%pusage%}}%#[bold,fg=colour#{?#{e|<:%pusage%,70},2,1}] "
+    rounding: 0
+    
+load_avg:
+  tmux:
+    format: "龍#{p-5:#{l:%avg1min%}} (ﰌ#{p-3:#{l:%running%}})[ #{p-3:#{l:%procs%}}]"
+    rounding: 2
+    
+ram:
+  i3:
+    format: "%percentage%"
+    unit: Go
+    rounding: 2
+  tmux:
+    format: " %used%/#[bold]%total%㎇"
+    unit: Go
+    rounding: 1
+    #  %fakewpm%/fwpm 
+
+hackspeed:
+  tmux:
+    format: "  %keys%/kps גּ %shorties%/s  %wpm%/wpm"
+    unit: ps
+    rounding: 1
+ip:
+  tmux:
+    interface: ['wlan1']
+    no_ip: No address
+
+music:
+  tmux:
+    format: "%xesam:title% - %xesam:artist%"
+    no_player: none
+    trim_at: 15
+
+pulseaudio:
+  i3_input:
+    type: source
+    format: "%percentage%%"
+    muted_format: "🔇 %percentage%%"
+  i3_output:
+    type: sink
+    format: "%percentage%%"
+    muted_format: "🔇 %percentage%%"
+
+storage:
+  tmux:
+    format: "%pused%% "
+    mount_point: /
+    rounding: 1
+
+uptime:
+  tmux:
+    two_digit_hours: true
+    format: "%hours%h%minutes%"
+    no_hours_format: "%minutes% minutes"
+    no_minutes_format: "%seconds% seconds"
+
+custom:
+  ssid:
+    command: /home/chris/.local/bin/wifi
+    format: "%output%"
+  my_custom_script:
+    prefix: ☁️
+    command: curl wttr.in/Paris?format=%t
+  awesome_format:
+    scripts:
+      - wifi:
+          # shell: ["zsh", "-c"
+          # script:
+          inline: true
+          args: []
+          content: |2
+            #!/bin/zsh 
+            emulate zsh 
+
+            local -a wifistr=('🬞🬻' '🬵 ' '🬞 ')
+            local ssid=$(iwgetid -r)
+            cat /proc/net/wireless | tail +3 | read iface wstatus link level noise nwid crypt frag retry misc missed
+            typeset -F 0 sig=${link}
+
+            [[ ${sig} -le 100 ]] && { sigchr="${wifistr[1]}"; color=2; }
+            [[ ${sig} -le 70 ]] && { sigchr="${wifistr[2]}"; color=9; }
+            [[ ${sig} -lt 50 ]] && { sigchr="${wifistr[3]}"; color=1; }
+
+            print -v outstr -f '#[fg=colour0,push-default]  %s #[fg=colour%4$d]%02s#[fg=default] (#[fg=colour%4$d,bright,bold]%d%%#[fg=default])#[pop-default]' "${ssid}" "${sigchr}" ${sig} $color
+
+            echo ${outstr}
+
